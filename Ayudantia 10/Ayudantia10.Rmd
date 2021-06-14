@@ -1,0 +1,113 @@
+---
+title: "Ayudantia 10 Metodo Bayesiano"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Cargamos Librerias
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(e1071)
+library(caret)
+library(rstan)
+library(rstanarm)
+library(titanic)
+```
+
+```{r}
+#rstan_options(auto_write=TRUE)
+# Run on multiple cores
+#options(mc.cores = parallel::detectCores())
+```
+
+
+## Cargamos los datos con los que vamos a trabajar
+
+```{r}
+titanictrain <- titanic::titanic_train %>%  as.data.frame()
+titanictest <- titanic::titanic_test %>% as.data.frame()
+
+titanic <- titanictrain
+```
+
+```{r}
+glimpse(titanic)
+```
+
+## Pre Procesamiento
+
+```{r}
+titanic$class <- str_extract(titanictrain$Pclass, "[0-9]")
+titanic$SexCode <- (titanic$Sex == "female") %>% as.numeric()
+
+titanic <- titanic[c(4,3,5:14,2)]
+
+str(titanic)
+
+titanic$Sex <- NULL
+titanic$Ticket <- NULL
+titanic$Cabin <- NULL
+titanic$SibSp <- NULL
+titanic$Parch <- NULL
+titanic$Fare <- NULL
+titanic$Embarked <- NULL
+titanic$Pclass <- NULL
+
+str(titanic)
+```
+
+
+```{r}
+titanictest$class <- str_extract(titanictest$Pclass, "[0-9]")
+titanictest$SexCode <- (titanictest$Sex == "female") %>% as.numeric()
+
+titanictest <- titanictest[c(3,4,5:13,2)]
+
+str(titanictest)
+
+titanictest$Sex <- NULL
+titanictest$Ticket <- NULL
+titanictest$Cabin <- NULL
+titanictest$SibSp <- NULL
+titanictest$Parch <- NULL
+titanictest$Fare <- NULL
+titanictest$Embarked <- NULL
+titanictest$Pclass <- NULL
+
+str(titanictest)
+```
+
+## Metodo Bayesiano
+
+```{r}
+library(e1071)
+
+TitanicLinear <- stan_glm(Survived ~ Age + SexCode + as.factor(class), 
+                          data = titanic, family = gaussian)
+
+model_nb <- naiveBayes(Survived ~ Age + SexCode + as.factor(class), titanic, laplace=1)
+```
+
+## Evaluacion Metodo Bayesiano
+
+Si bien para el data set que se trabajo en esta ayudantia no es el adecuado para poder realizar la evaluacion (ya que para el conjunto de prueba del modelo no presenta la columna Survived para validar con la matriz de confusion que tan bien se clasificaron las observaciones), en forma general este modelo se evalua mediante la matriz de confusion, donde se calcula el accuracy del modelo. Otro metodo de evaluacion valido es graficar la curva ROC y calcular el AUC del modelo para saber que tan bien esta clasificando nuestro modelo.
+
+```{r}
+pred_nb <- predict(model_nb, newdata = titanictest)
+confusionMatrix(data=pred_nb, reference = titanic$Survived)
+```
+
+```{r}
+library(ROCR)
+
+pred_test_nb <- predict(model_nb, newdata = titanictest, type="raw")
+p_test_nb <- prediction(pred_test_nb[,2], titanic$Survived)
+perf_nb <- performance(p_test_nb, "tpr", "fpr")
+plot(perf_nb, colorize=T)
+performance(p_test_nb, "auc")@y.values
+```
+
