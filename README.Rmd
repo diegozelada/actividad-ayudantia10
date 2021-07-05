@@ -1,0 +1,56 @@
+---
+title: "Actividad 10"
+output: github_document
+---
+
+
+
+##Cargamos librerías 
+```{r}
+library(tidyverse)
+library(e1071)
+library(caret)
+library(rstan)
+library(rstanarm)
+library(rsample)
+library(ROCR)
+```
+##Cargamos nuestra data
+```{r}
+setwd("D:/Universidad/Minería de datos 2/actividad-ayudantia10")
+credit_card <- read.csv("UCI_Credit_Card.csv", sep = ",")
+```
+##preprocesamiento de datos
+
+```{r}
+summary(credit_card)
+```
+```{r}
+credit_card$ID <- NULL
+credit_card$SEX <- factor(credit_card$SEX, levels=1:2, labels=c("Male", "Female"))
+credit_card$EDUCATION <- as.factor(credit_card$EDUCATION)
+credit_card$MARRIAGE <- as.factor(credit_card$MARRIAGE)
+credit_card$default.payment.next.month <- factor(credit_card$default.payment.next.month, levels = 0:1, labels=c("No", "Yes"))
+```
+##Método Bayesiano
+```{r}
+set.seed(123)
+sample <- sample(1:nrow(credit_card), .8*30000)
+trainData <- credit_card[sample,]
+testData <-  credit_card[-sample,]
+modelo_nb <- naiveBayes(default.payment.next.month~SEX+MARRIAGE+AGE+PAY_0+PAY_6+BILL_AMT1+BILL_AMT6+PAY_AMT1+PAY_AMT6, trainData, laplace=1)
+pred_nb <- predict(modelo_nb, newdata = testData)
+confusionMatrix(data=pred_nb, reference = testData$default.payment.next.month)
+```
+##Graficamos
+
+```{r}
+pred_test_nb <- predict(modelo_nb, newdata = testData, type="raw")
+p_test_nb <- prediction(pred_test_nb[,2], testData$default.payment.next.month)
+perf_nb <- performance(p_test_nb, "tpr", "fpr")
+plot(perf_nb, colorize=T)
+```
+
+```{r}
+performance(p_test_nb, "auc")@y.values
+```
